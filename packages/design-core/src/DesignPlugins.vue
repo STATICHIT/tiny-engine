@@ -1,95 +1,100 @@
-<!-- 左侧插件栏,修改右侧菜单时参照这个文件来写 -->
+<!-- 左侧插件栏-->
 <template>
-  <div id="tiny-engine-nav-panel" :style="{ 'pointer-events': pluginState.pluginEvent }">
-    <!-- 图标菜单上侧区域（主要icon） -->
-    <ul class="nav-panel-lists top">
-      <li
-        v-for="(item, index) in state.topNavLists"
-        :key="index"
-        :class="{
-          'list-item': true,
-          'first-item': index === 0,
-          active: item.id === renderPanel,
-          prev: state.prevIdex - 1 === index
-        }"
-        :title="item.title"
-        @click="clickMenu({ item, index })"
-      >
-        <div>
-          <span class="item-icon">
-            <svg-icon
-              v-if="typeof iconComponents[item.id] === 'string'"
-              :name="iconComponents[item.id]"
-              class="panel-icon"
-            ></svg-icon>
-            <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
-          </span>
-        </div>
-      </li>
-    </ul>
+  <div>
+    <div id="tiny-engine-nav-panel" :style="{ 'pointer-events': pluginState.pluginEvent }">
+      <!-- 图标菜单上侧区域（主要icon） -->
+      <ul class="nav-panel-lists top">
+        <li
+          v-for="(item, index) in state.topNavLists"
+          :key="index"
+          :class="{
+            'list-item': true,
+            'first-item': index === 0,
+            active: item.id === renderPanel,
+            prev: state.prevIdex - 1 === index
+          }"
+          :title="item.title"
+          @click="clickMenu({ item, index })"
+        >
+          <div>
+            <span class="item-icon">
+              <svg-icon
+                v-if="typeof iconComponents[item.id] === 'string'"
+                :name="iconComponents[item.id]"
+                class="panel-icon"
+              ></svg-icon>
+              <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
+            </span>
+          </div>
+        </li>
+      </ul>
 
-    <!-- 图标菜单下侧区域（附加icon） -->
-    <ul class="nav-panel-lists bottom">
-      <!-- 与上侧间隔 -->
-      <li style="flex: 1" class="list-item"></li>
-      <!-- 下侧具体icon插件菜单遍历渲染 -->
-      <li
-        v-for="(item, index) in state.bottomNavLists"
-        :key="index"
-        :class="[
-          'list-item',
-          { active: renderPanel === item.id, prev: state.prevIdex - 1 === index, 'first-item': index === 0 }
-        ]"
-        :title="item.title"
-        @click="clickMenu({ item, index })"
-      >
-        <div :class="{ 'is-show': renderPanel }">
-          <span class="item-icon">
-            <public-icon
-              v-if="typeof iconComponents[item.id] === 'string'"
-              :name="iconComponents[item.id]"
-              class="panel-icon"
-              svgClass="panel-svg"
-            ></public-icon>
-            <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
-          </span>
-        </div>
-      </li>
-      <!-- 其他依赖插件菜单(比如AI机器人插件) -->
-      <li
-        v-if="state.independence"
-        :key="state.bottomNavLists.length + 1"
-        :class="['list-item']"
-        :title="state.independence.title"
-        @click="openAIRobot"
-      >
-        <div>
-          <span class="item-icon">
-            <img class="chatgpt-icon" src="../assets/AI.png" />
-          </span>
-        </div>
-      </li>
-    </ul>
-  </div>
-
-  <!-- 插件面板 -->
-  <div
-    v-show="renderPanel && components[renderPanel]"
-    id="tiny-engine-left-panel"
-    :class="[renderPanel, { 'is-fixed': pluginsState.fixedPanels.includes(renderPanel) }]"
-  >
-    <div class="left-panel-wrap">
-      <keep-alive>
-        <component
-          :is="components[renderPanel]"
-          ref="pluginRef"
-          :fixed-panels="pluginsState.fixedPanels"
-          @close="close"
-          @fixPanel="fixPanel"
-        ></component>
-      </keep-alive>
+      <!-- 图标菜单下侧区域（附加icon） -->
+      <ul class="nav-panel-lists bottom">
+        <!-- 与上侧间隔 -->
+        <li style="flex: 1" class="list-item"></li>
+        <!-- 下侧具体icon插件菜单遍历渲染 -->
+        <li
+          v-for="(item, index) in state.bottomNavLists"
+          :key="index"
+          :class="[
+            'list-item',
+            { active: renderPanel === item.id, prev: state.prevIdex - 1 === index, 'first-item': index === 0 }
+          ]"
+          :title="item.title"
+          @click="clickMenu({ item, index })"
+        >
+          <div :class="{ 'is-show': renderPanel }">
+            <span class="item-icon">
+              <public-icon
+                v-if="typeof iconComponents[item.id] === 'string'"
+                :name="iconComponents[item.id]"
+                class="panel-icon"
+                svgClass="panel-svg"
+              ></public-icon>
+              <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
+            </span>
+          </div>
+        </li>
+        <!-- 其他依赖插件菜单(比如AI机器人插件) -->
+        <li
+          v-if="state.independence"
+          :key="state.bottomNavLists.length + 1"
+          :class="['list-item']"
+          :title="state.independence.title"
+          @click="openAIRobot"
+        >
+          <div>
+            <span class="item-icon">
+              <img class="chatgpt-icon" src="../assets/AI.png" />
+            </span>
+          </div>
+        </li>
+      </ul>
     </div>
   </div>
+
+  <div>
+    <!-- 插件面板 -->
+    <div
+      v-show="renderPanel && components[renderPanel]"
+      id="tiny-engine-left-panel"
+      :class="[renderPanel, { 'is-fixed': leftFixedPanelsStorage.includes(renderPanel) }]"
+    >
+      <div class="left-panel-wrap">
+        <keep-alive>
+          <component
+            :is="components[renderPanel]"
+            ref="pluginRef"
+            :fixed-panels="leftFixedPanelsStorage"
+            @close="close"
+            @fixPanel="fixPanel"
+          ></component>
+        </keep-alive>
+      </div>
+    </div>
+  </div>
+
   <!--  AI 悬浮窗  -->
   <Teleport to="body">
     <div v-if="robotVisible" class="robot-dialog">
@@ -104,7 +109,6 @@
 import { reactive, ref, watch } from 'vue'
 import { Popover, Tooltip } from '@opentiny/vue'
 import { useLayout, usePage } from '@opentiny/tiny-engine-controller'
-import Addons from '@opentiny/tiny-engine-app-addons'
 import { PublicIcon } from '@opentiny/tiny-engine-common'
 
 export default {
@@ -116,11 +120,14 @@ export default {
   props: {
     renderPanel: {
       type: String
+    },
+    addons: {
+      type: Array
     }
   },
   emits: ['click', 'node-click'],
   setup(props, { emit }) {
-    const plugins = Addons.plugins //导入了addons.js中的addons.plugins文件
+    const plugins = props.addons && props.addons.plugins
     const components = {}
     const iconComponents = {}
     const pluginRef = ref(null)
@@ -129,13 +136,9 @@ export default {
     const { isTemporaryPage } = usePage()
     const HELP_PLUGIN_ID = 'EditorHelp'
 
-    const {
-      pluginState,
-      registerPluginApi,
-      layoutState: { plugins: pluginsState }
-    } = useLayout()
+    const { pluginState, registerPluginApi, changeLeftFixedPanels, leftFixedPanelsStorage } = useLayout()
 
-    Addons.plugins.forEach(({ id, component, api, icon }) => {
+    props.addons.plugins.forEach(({ id, component, api, icon }) => {
       components[id] = component
       iconComponents[id] = icon
       if (api) {
@@ -204,9 +207,7 @@ export default {
 
     //切换面板状态
     const fixPanel = (pluginName) => {
-      pluginsState.fixedPanels = pluginsState.fixedPanels?.includes(pluginName)
-        ? pluginsState.fixedPanels?.filter((item) => item !== pluginName)
-        : [...pluginsState.fixedPanels, pluginName]
+      changeLeftFixedPanels(pluginName)
     }
 
     return {
@@ -218,12 +219,12 @@ export default {
       robotComponent,
       close,
       fixPanel,
-      pluginsState,
       components,
       iconComponents,
       completed,
       doCompleted,
-      pluginState
+      pluginState,
+      leftFixedPanelsStorage
     }
   }
 }
@@ -266,6 +267,7 @@ export default {
 #tiny-engine-nav-panel {
   display: none;
   width: var(--base-nav-panel-width);
+  height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -287,7 +289,7 @@ export default {
 
     &.bottom {
       flex: 1;
-      padding-bottom: 36px;
+      padding-bottom: 80px;
     }
 
     .list-item {

@@ -1,11 +1,5 @@
 <template>
-  <plugin-panel
-    title="高级"
-    :fixed-panels="fixedPanels"
-    :fixed-name="SETTING_NAME.Event"
-    :defaultWidth="320"
-    @close="$emit('close')"
-  >
+  <plugin-panel title="高级" :fixed-panels="fixedPanels" :fixed-name="PLUGIN_NAME.Event" @close="$emit('close')">
     <template #content>
       <tiny-collapse v-model="activeNames">
         <tiny-collapse-item title="事件绑定" name="bindEvent">
@@ -42,7 +36,7 @@ export default {
   },
   emits: ['close'],
   setup(props, { emit }) {
-    const { SETTING_NAME } = useLayout()
+    const { PLUGIN_NAME } = useLayout()
     const activeNames = ref(['bindEvent', 'advancedConfig'])
 
     const panelState = reactive({
@@ -51,7 +45,7 @@ export default {
     provide('panelState', panelState)
 
     return {
-      SETTING_NAME,
+      PLUGIN_NAME,
       activeNames
     }
   }

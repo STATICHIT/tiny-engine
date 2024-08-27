@@ -1,20 +1,24 @@
+<!-- 右侧插件栏-->
 <template>
   <!-- 插件面板 -->
-  <div
-    v-show="renderPanel && components[renderPanel]"
-    id="tiny-engine-right-panel"
-    :class="[renderPanel, { 'is-fixed': settingsState.fixedPanels.includes(renderPanel) }]"
-  >
-    <div class="right-panel-wrap">
-      <component
-        :is="components[renderPanel]"
-        :fixed-panels="settingsState.fixedPanels"
-        @close="close"
-        @fixPanel="fixPanel"
-      ></component>
-      <div v-show="activating" class="active2" />
+  <div>
+    <div
+      v-show="renderPanel && components[renderPanel]"
+      id="tiny-engine-right-panel"
+      :class="[renderPanel, { 'is-fixed': rightFixedPanelsStorage.includes(renderPanel) }]"
+    >
+      <div class="right-panel-wrap">
+        <component
+          :is="components[renderPanel]"
+          :fixed-panels="rightFixedPanelsStorage"
+          @close="close"
+          @fixPanel="fixPanel"
+        ></component>
+        <div v-show="activating" class="active2" />
+      </div>
     </div>
   </div>
+
   <div id="tiny-engine-nav-panel">
     <!-- 图标菜单 -->
     <ul class="nav-panel-lists">
@@ -24,15 +28,15 @@
         :class="{
           'list-item': true,
           'first-item': index === 0,
-          active: item.name === renderPanel
+          active: item.id === renderPanel
         }"
         :title="item.title"
         @click="clickMenu({ item, index })"
       >
         <div>
           <span class="item-icon">
-            <svg-icon v-if="iconComponents[item.name]" :name="iconComponents[item.name]" class="panel-icon"></svg-icon>
-            <component v-else :is="iconComponents[item.name]" class="panel-icon"></component>
+            <svg-icon v-if="iconComponents[item.id]" :name="iconComponents[item.id]" class="panel-icon"></svg-icon>
+            <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
           </span>
         </div>
       </li>
@@ -45,7 +49,6 @@ import { computed, ref, toRefs, watch, reactive } from 'vue'
 import { Popover, Tooltip } from '@opentiny/vue'
 import { Tabs, TabItem } from '@opentiny/vue'
 import { useLayout } from '@opentiny/tiny-engine-controller'
-import Addons from '@opentiny/tiny-engine-app-addons'
 
 export default {
   components: {
@@ -57,43 +60,47 @@ export default {
   props: {
     renderPanel: {
       type: String
+    },
+    addons: {
+      type: Array
     }
   },
 
   setup(props) {
     const { renderPanel } = toRefs(props)
     const {
+      rightFixedPanelsStorage,
+      changeRightFixedPanels,
       layoutState: { settings: settingsState }
     } = useLayout()
-    const settings = Addons && Addons.settings
+    const settings = props.addons && props.addons.settings
     const components = {}
     const iconComponents = {}
     const activating = computed(() => settingsState.activating) //高亮显示
     const showMask = ref(true)
 
-    Addons.settings.forEach(({ name, component, icon }) => {
-      components[name] = component
-      iconComponents[name] = icon
+    props.addons.settings.forEach(({ id, component, icon }) => {
+      components[id] = component
+      iconComponents[id] = icon
     })
 
     const state = reactive({
-      leftList: settings.filter((item) => item.align === 'left')
+      leftList: settings
     })
 
-    const setRender = (curName) => {
-      settingsState.render = curName
+    const setRender = (curId) => {
+      settingsState.render = curId
     }
 
     //点击右侧菜单icon按钮
     const clickMenu = ({ item }) => {
-      if (settingsState.render == item.name) {
-        setRender(null)
+      if (settingsState.render == item.id) {
+        useLayout().closeSetting(true)
         return
       }
-      setRender(item.name)
+      setRender(item.id)
     }
 
-    //待setting组件封装完 备用
     const close = () => {
       useLayout().closeSetting(true)
     }
@@ -102,10 +109,9 @@ export default {
       setRender(n)
     })
 
+    //切换面板状态
     const fixPanel = (pluginName) => {
-      settingsState.fixedPanels = settingsState.fixedPanels?.includes(pluginName)
-        ? settingsState.fixedPanels?.filter((item) => item !== pluginName)
-        : [...settingsState.fixedPanels, pluginName]
+      changeRightFixedPanels(pluginName)
     }
 
     return {
@@ -118,7 +124,8 @@ export default {
       iconComponents,
       clickMenu,
       close,
-      fixPanel
+      fixPanel,
+      rightFixedPanelsStorage
     }
   }
 }

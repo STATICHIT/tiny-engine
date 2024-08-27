@@ -12,6 +12,7 @@
 
 import { reactive, nextTick } from 'vue'
 import { constants } from '@opentiny/tiny-engine-utils'
+import { useStorage } from '@vueuse/core'
 
 const { PAGE_STATUS } = constants
 
@@ -31,28 +32,12 @@ const PLUGIN_NAME = {
   I18n: 'I18n',
   Script: 'PageController',
   Data: 'DataSource',
-  Schema: 'Schema'
+  Schema: 'Schema',
+  Event: 'SettingEvents',
+  Style: 'SettingStyles',
+  Props: 'SettingProps'
 }
-const SETTING_NAME = {
-  Event: 'event',
-  Style: 'style',
-  Props: 'props'
-}
-const pluginWidth = reactive({
-  Materials: '300',
-  OutlineTree: '300',
-  AppManage: '300',
-  BlockManage: '300',
-  Collections: '300',
-  Bridge: '300',
-  I18n: '620',
-  PageController: '1000',
-  DataSource: '300',
-  Schema: '1000',
-  props: '320',
-  style: '320',
-  event: '320'
-})
+
 const pluginState = reactive({
   pluginEvent: 'all'
 })
@@ -71,7 +56,9 @@ const layoutState = reactive({
   plugins: {
     fixedPanels: [PLUGIN_NAME.Materials],
     render: null,
-    api: {} // 插件需要注册交互API到这里
+    api: {}, // 插件需要注册交互API到这里
+    activating: false, // 右侧面版激活提示状态
+    showDesignSettings: true
   },
   settings: {
     fixedPanels: [],
@@ -85,7 +72,19 @@ const layoutState = reactive({
   },
   pageStatus: ''
 })
+const leftFixedPanelsStorage = useStorage('leftPanels', layoutState.plugins.fixedPanels)
+const rightFixedPanelsStorage = useStorage('rightPanels', layoutState.settings.fixedPanels)
 
+const changeLeftFixedPanels = (pluginName) => {
+  leftFixedPanelsStorage.value = leftFixedPanelsStorage.value?.includes(pluginName)
+    ? leftFixedPanelsStorage.value?.filter((item) => item !== pluginName)
+    : [...leftFixedPanelsStorage.value, pluginName]
+}
+const changeRightFixedPanels = (pluginName) => {
+  rightFixedPanelsStorage.value = rightFixedPanelsStorage.value?.includes(pluginName)
+    ? rightFixedPanelsStorage.value?.filter((item) => item !== pluginName)
+    : [...rightFixedPanelsStorage.value, pluginName]
+}
 const registerPluginApi = (api) => {
   Object.assign(layoutState.plugins.api, api)
 }
@@ -108,7 +107,7 @@ const activeSetting = (name) => {
 // 关闭右侧setting插件面板
 const closeSetting = (forceClose) => {
   const { settings } = layoutState
-  if (forceClose) {
+  if (!settings.fixedPanels.includes(settings.render) || forceClose) {
     settings.render = null
   }
 }
@@ -152,9 +151,28 @@ const getPluginState = () => layoutState.plugins
 const isEmptyPage = () => layoutState.pageStatus?.state === PAGE_STATUS.Empty
 
 export default () => {
+  let plugin = ''
+  const pluginStorage = localStorage.getItem('plugin')
+  if (pluginStorage !== 'undefined') {
+    plugin = pluginStorage
+  }
+  try {
+    plugin = JSON.parse(plugin)
+  } catch (error) {
+    throw new Error(error)
+  }
+  const pluginWidthStorage = useStorage('plugin', plugin)
+
+  const getPluginWidth = (name) => pluginWidthStorage.value[name]?.width || 300
+
+  const changePluginWidth = (name, width) => {
+    if (Object.prototype.hasOwnProperty.call(pluginWidthStorage.value, name)) {
+      pluginWidthStorage.value[name].width = width
+    }
+  }
+
   return {
     PLUGIN_NAME,
-    SETTING_NAME,
     activeSetting,
     activePlugin,
     closePlugin,
@@ -168,6 +186,11 @@ export default () => {
     getPluginState,
     pluginState,
     isEmptyPage,
-    pluginWidth
+    getPluginWidth,
+    changePluginWidth,
+    leftFixedPanelsStorage,
+    rightFixedPanelsStorage,
+    changeLeftFixedPanels,
+    changeRightFixedPanels
   }
 }
