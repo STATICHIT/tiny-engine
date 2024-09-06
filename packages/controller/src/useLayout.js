@@ -42,7 +42,8 @@ const PLUGIN_POSITION = {
   leftBottom: 'leftBottom',
   independence: 'independence',
   rightTop: 'rightTop',
-  rightBottom: 'rightBottom'
+  rightBottom: 'rightBottom',
+  fixed: 'fixed'
 }
 
 const pluginState = reactive({

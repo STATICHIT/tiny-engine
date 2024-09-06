@@ -3,8 +3,16 @@
   <div>
     <div id="tiny-engine-nav-panel" :style="{ 'pointer-events': pluginState.pluginEvent }">
       <!-- 图标菜单上侧区域（主要icon） -->
-      <ul class="nav-panel-lists top">
-        <li
+      <VueDraggable
+        v-model="state.topNavLists"
+        filter="EditorHelp"
+        class="nav-panel-lists top"
+        group="plugins"
+        @start="onStart"
+        @update="onUpdate"
+        @end="onEnd"
+      >
+        <div
           v-for="(item, index) in state.topNavLists"
           :key="index"
           :class="{
@@ -26,16 +34,38 @@
               <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
             </span>
           </div>
-        </li>
-      </ul>
+        </div>
+      </VueDraggable>
 
       <!-- 图标菜单下侧区域（附加icon） -->
-      <ul class="nav-panel-lists bottom">
-        <!-- 与上侧间隔 -->
-        <li style="flex: 1" class="list-item"></li>
-        <!-- 下侧具体icon插件菜单遍历渲染 -->
-        <li
-          v-for="(item, index) in state.bottomNavLists"
+      <div class="nav-panel-lists bottom">
+        <div style="flex: 1" class="list-item"></div>
+        <VueDraggable v-model="state.bottomNavLists" group="plugins" @start="onStart" @update="onUpdate" @end="onEnd">
+          <div
+            v-for="(item, index) in state.bottomNavLists"
+            :key="index"
+            :class="[
+              'list-item',
+              { active: renderPanel === item.id, prev: state.prevIdex - 1 === index, 'first-item': index === 0 }
+            ]"
+            :title="item.title"
+            @click="clickMenu({ item, index })"
+          >
+            <div :class="{ 'is-show': renderPanel }">
+              <span class="item-icon">
+                <public-icon
+                  v-if="typeof iconComponents[item.id] === 'string'"
+                  :name="iconComponents[item.id]"
+                  class="panel-icon"
+                  svgClass="panel-svg"
+                ></public-icon>
+                <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
+              </span>
+            </div>
+          </div>
+        </VueDraggable>
+        <div
+          v-for="(item, index) in state.fixedNavLists"
           :key="index"
           :class="[
             'list-item',
@@ -55,9 +85,8 @@
               <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
             </span>
           </div>
-        </li>
-        <!-- 其他依赖插件菜单(比如AI机器人插件) -->
-        <li
+        </div>
+        <div
           v-if="state.independence"
           :key="state.bottomNavLists.length + 1"
           :class="['list-item']"
@@ -69,8 +98,8 @@
               <img class="chatgpt-icon" src="../assets/AI.png" />
             </span>
           </div>
-        </li>
-      </ul>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -111,11 +140,14 @@ import { Popover, Tooltip } from '@opentiny/vue'
 import { useLayout, usePage } from '@opentiny/tiny-engine-controller'
 import { PublicIcon } from '@opentiny/tiny-engine-common'
 import { getPlugin } from '../config/plugin.js'
+import { VueDraggable } from 'vue-draggable-plus'
+
 export default {
   components: {
     TinyPopover: Popover,
     TinyTooltip: Tooltip,
-    PublicIcon
+    PublicIcon,
+    VueDraggable
   },
   props: {
     renderPanel: {
@@ -158,7 +190,8 @@ export default {
       prevIdex: -2,
       topNavLists: getPluginsByLayout(PLUGIN_POSITION.leftTop).map((pluginName) => getPlugin(pluginName)),
       bottomNavLists: getPluginsByLayout(PLUGIN_POSITION.leftBottom).map((pluginName) => getPlugin(pluginName)),
-      independence: getPluginsByLayout(PLUGIN_POSITION.independence).map((pluginName) => getPlugin(pluginName))
+      independence: getPluginsByLayout(PLUGIN_POSITION.independence).map((pluginName) => getPlugin(pluginName)),
+      fixedNavLists: getPluginsByLayout(PLUGIN_POSITION.fixed).map((pluginName) => getPlugin(pluginName))
     })
 
     const doCompleted = () => {
@@ -213,6 +246,18 @@ export default {
     const fixPanel = (pluginName) => {
       changeLeftFixedPanels(pluginName)
     }
+    const onStart = (e) => {
+      return e
+    }
+
+    const onEnd = (e) => {
+      return e
+    }
+
+    const onUpdate = (e) => {
+      //ToDo在此修改localStorage里插件排列的位置
+      return e
+    }
 
     return {
       state,
@@ -228,7 +273,10 @@ export default {
       completed,
       doCompleted,
       pluginState,
-      leftFixedPanelsStorage
+      leftFixedPanelsStorage,
+      onStart,
+      onEnd,
+      onUpdate
     }
   }
 }
