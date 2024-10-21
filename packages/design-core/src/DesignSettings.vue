@@ -18,30 +18,32 @@
       </div>
     </div>
   </div>
-
+  <!-- 图标菜单 -->
   <div id="tiny-engine-nav-panel">
-    <!-- 图标菜单 -->
-    <ul class="nav-panel-lists">
-      <li
+    <vue-draggable-next id="rightTop" v-model="state.leftList" class="nav-panel-lists" group="plugins" @end="onEnd">
+      <div
         v-for="(item, index) in state.leftList"
         :key="index"
-        :class="{
-          'list-item': true,
-          'first-item': index === 0,
-          active: item.id === renderPanel
-        }"
+        :class="['list-item', { 'first-item': item === state.leftList[0], active: item.id === renderPanel }]"
         :title="item.title"
         @click="clickMenu({ item, index })"
+        @contextmenu.prevent="showContextMenu($event, true, item, index, PLUGIN_POSITION.rightTop)"
       >
-        <div>
-          <span class="item-icon">
-            <svg-icon v-if="iconComponents[item.id]" :name="iconComponents[item.id]" class="panel-icon"></svg-icon>
-            <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
-          </span>
-        </div>
-      </li>
-    </ul>
+        <span class="item-icon" v-if="getPluginShown(item.id)">
+          <svg-icon v-if="iconComponents[item.id]" :name="iconComponents[item.id]" class="panel-icon"></svg-icon>
+          <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
+        </span>
+      </div>
+      <div style="flex: 1" class="list-item" @contextmenu.prevent="showContextMenu($event, false)"></div>
+    </vue-draggable-next>
   </div>
+
+  <right-menu
+    ref="rightMenu"
+    :list="state.leftList"
+    :align="PLUGIN_POSITION.rightTop"
+    @switchAlign="switchAlign"
+  ></right-menu>
 </template>
 
 <script>
@@ -49,22 +51,26 @@ import { computed, ref, toRefs, watch, reactive } from 'vue'
 import { Popover, Tooltip } from '@opentiny/vue'
 import { Tabs, TabItem } from '@opentiny/vue'
 import { useLayout } from '@opentiny/tiny-engine-controller'
-import { getPlugin } from '../config/plugin.js'
+import { getPlugin, getPluginById } from '../config/plugin.js'
+import { VueDraggableNext } from 'vue-draggable-next'
+import RightMenu from './RightMenu.vue'
 
 export default {
   components: {
     TinyTabs: Tabs,
     TinyTabItem: TabItem,
     TinyPopover: Popover,
-    TinyTooltip: Tooltip
+    TinyTooltip: Tooltip,
+    VueDraggableNext,
+    RightMenu
   },
   props: {
     renderPanel: {
       type: String
     }
   },
-
-  setup(props) {
+  emits: ['changeRightAlign'],
+  setup(props, { emit }) {
     const components = {}
     const iconComponents = {}
     const { renderPanel } = toRefs(props)
@@ -74,8 +80,20 @@ export default {
       registerPluginApi,
       changeRightFixedPanels,
       getPluginsByLayout,
+      dragPluginLayout,
+      isSameSide,
+      getPluginShown,
       layoutState: { settings: settingsState }
     } = useLayout()
+
+    const rightMenu = ref(null)
+    const showContextMenu = (event, type, item, index, align) => {
+      if (!type) {
+        rightMenu.value.showContextMenu(event.clientX, event.clientY, type)
+      } else {
+        rightMenu.value.showContextMenu(event.clientX, event.clientY, type, item, index, align)
+      }
+    }
 
     const plugins = getPluginsByLayout().map((pluginName) => getPlugin(pluginName))
     plugins.forEach(({ id, component, api, icon }) => {
@@ -88,12 +106,26 @@ export default {
       }
     })
 
-    const activating = computed(() => settingsState.activating) //高亮显示
-    const showMask = ref(true)
-
     const state = reactive({
       leftList: getPluginsByLayout(PLUGIN_POSITION.rightTop).map((pluginName) => getPlugin(pluginName))
     })
+
+    const close = () => {
+      useLayout().closeSetting(true)
+    }
+
+    const switchAlign = (index, id, list, align) => {
+      state.leftList.splice(index, 1)
+      emit('changeRightAlign', id)
+      dragPluginLayout(list, align, index, 0)
+    }
+    const activating = computed(() => settingsState.activating) //高亮显示
+    const showMask = ref(true)
+
+    const changeAlign = (pluginId) => {
+      const item = getPluginById(pluginId)
+      state.leftList.unshift(item)
+    }
 
     const setRender = (curId) => {
       settingsState.render = curId
@@ -108,10 +140,6 @@ export default {
       setRender(item.id)
     }
 
-    const close = () => {
-      useLayout().closeSetting(true)
-    }
-
     watch(renderPanel, (n) => {
       setRender(n)
     })
@@ -119,6 +147,12 @@ export default {
     //切换面板状态
     const fixPanel = (pluginName) => {
       changeRightFixedPanels(pluginName)
+    }
+
+    //监听拖拽结束事件
+    const onEnd = (e) => {
+      if (!isSameSide(e.from.id, e.to.id)) close()
+      dragPluginLayout(e.from.id, e.to.id, e.oldIndex, e.newIndex)
     }
 
     return {
@@ -131,7 +165,14 @@ export default {
       clickMenu,
       close,
       fixPanel,
-      rightFixedPanelsStorage
+      rightFixedPanelsStorage,
+      onEnd,
+      showContextMenu,
+      changeAlign,
+      PLUGIN_POSITION,
+      getPluginShown,
+      switchAlign,
+      rightMenu
     }
   }
 }
@@ -268,5 +309,10 @@ export default {
   100% {
     box-shadow: inset 0px 0px 14px var(--ti-lowcode-canvas-handle-hover-bg);
   }
+}
+
+.ghost {
+  opacity: 0.5;
+  background: #f2f2f2;
 }
 </style>

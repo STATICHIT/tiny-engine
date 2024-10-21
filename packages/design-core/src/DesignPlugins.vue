@@ -3,8 +3,15 @@
   <div>
     <div id="tiny-engine-nav-panel" :style="{ 'pointer-events': pluginState.pluginEvent }">
       <!-- 图标菜单上侧区域（主要icon） -->
-      <ul class="nav-panel-lists top">
-        <li
+      <vue-draggable-next
+        v-model="state.topNavLists"
+        filter="EditorHelp"
+        class="nav-panel-lists top"
+        id="leftTop"
+        group="plugins"
+        @end="onEnd"
+      >
+        <div
           v-for="(item, index) in state.topNavLists"
           :key="index"
           :class="{
@@ -15,8 +22,9 @@
           }"
           :title="item.title"
           @click="clickMenu({ item, index })"
+          @contextmenu.prevent="showContextMenu($event, true, item, index, PLUGIN_POSITION.leftTop)"
         >
-          <div>
+          <div v-if="getPluginShown(item.id)">
             <span class="item-icon">
               <svg-icon
                 v-if="typeof iconComponents[item.id] === 'string'"
@@ -26,16 +34,39 @@
               <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
             </span>
           </div>
-        </li>
-      </ul>
+        </div>
+      </vue-draggable-next>
 
       <!-- 图标菜单下侧区域（附加icon） -->
-      <ul class="nav-panel-lists bottom">
-        <!-- 与上侧间隔 -->
-        <li style="flex: 1" class="list-item"></li>
-        <!-- 下侧具体icon插件菜单遍历渲染 -->
-        <li
-          v-for="(item, index) in state.bottomNavLists"
+      <div class="nav-panel-lists bottom">
+        <div style="flex: 1" class="list-item" @contextmenu.prevent="showContextMenu($event, false)"></div>
+        <vue-draggable-next id="leftBottom" v-model="state.bottomNavLists" group="plugins" @end="onEnd">
+          <div
+            v-for="(item, index) in state.bottomNavLists"
+            :key="index"
+            :class="[
+              'list-item',
+              { active: renderPanel === item.id, prev: state.prevIdex - 1 === index, 'first-item': index === 0 }
+            ]"
+            :title="item.title"
+            @click="clickMenu({ item, index })"
+            @contextmenu.prevent="showContextMenu($event, true, item, index, PLUGIN_POSITION.leftBottom)"
+          >
+            <div :class="{ 'is-show': renderPanel }" v-if="getPluginShown(item.id)">
+              <span class="item-icon">
+                <public-icon
+                  v-if="typeof iconComponents[item.id] === 'string'"
+                  :name="iconComponents[item.id]"
+                  class="panel-icon"
+                  svgClass="panel-svg"
+                ></public-icon>
+                <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
+              </span>
+            </div>
+          </div>
+        </vue-draggable-next>
+        <div
+          v-for="(item, index) in state.fixedNavLists"
           :key="index"
           :class="[
             'list-item',
@@ -55,9 +86,8 @@
               <component v-else :is="iconComponents[item.id]" class="panel-icon"></component>
             </span>
           </div>
-        </li>
-        <!-- 其他依赖插件菜单(比如AI机器人插件) -->
-        <li
+        </div>
+        <div
           v-if="state.independence"
           :key="state.bottomNavLists.length + 1"
           :class="['list-item']"
@@ -69,8 +99,8 @@
               <img class="chatgpt-icon" src="../assets/AI.png" />
             </span>
           </div>
-        </li>
-      </ul>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -103,6 +133,13 @@
       </keep-alive>
     </div>
   </Teleport>
+
+  <right-menu
+    ref="rightMenu"
+    :list="[...state.topNavLists, ...state.bottomNavLists]"
+    :align="left"
+    @switchAlign="switchAlign"
+  ></right-menu>
 </template>
 
 <script>
@@ -110,19 +147,24 @@ import { reactive, ref, watch } from 'vue'
 import { Popover, Tooltip } from '@opentiny/vue'
 import { useLayout, usePage } from '@opentiny/tiny-engine-controller'
 import { PublicIcon } from '@opentiny/tiny-engine-common'
-import { getPlugin } from '../config/plugin.js'
+import { getPlugin, getPluginById } from '../config/plugin.js'
+import { VueDraggableNext } from 'vue-draggable-next'
+import RightMenu from './RightMenu.vue'
+
 export default {
   components: {
     TinyPopover: Popover,
     TinyTooltip: Tooltip,
-    PublicIcon
+    PublicIcon,
+    VueDraggableNext,
+    RightMenu
   },
   props: {
     renderPanel: {
       type: String
     }
   },
-  emits: ['click', 'node-click'],
+  emits: ['click', 'node-click', 'changeLeftAlign'],
   setup(props, { emit }) {
     const components = {}
     const iconComponents = {}
@@ -138,8 +180,21 @@ export default {
       changeLeftFixedPanels,
       leftFixedPanelsStorage,
       getPluginsByLayout,
-      PLUGIN_POSITION
+      PLUGIN_POSITION,
+      dragPluginLayout,
+      isSameSide,
+      getPluginShown,
+      closePlugin
     } = useLayout()
+
+    const rightMenu = ref(null)
+    const showContextMenu = (event, type, item, index, align) => {
+      if (!type) {
+        rightMenu.value.showContextMenu(event.clientX, event.clientY, type)
+      } else {
+        rightMenu.value.showContextMenu(event.clientX, event.clientY, type, item, index, align)
+      }
+    }
 
     const plugins = getPluginsByLayout().map((pluginName) => getPlugin(pluginName))
     plugins.forEach(({ id, component, api, icon }) => {
@@ -152,19 +207,36 @@ export default {
       }
     })
 
-    const completed = ref(false)
-
     const state = reactive({
       prevIdex: -2,
       topNavLists: getPluginsByLayout(PLUGIN_POSITION.leftTop).map((pluginName) => getPlugin(pluginName)),
       bottomNavLists: getPluginsByLayout(PLUGIN_POSITION.leftBottom).map((pluginName) => getPlugin(pluginName)),
-      independence: getPluginsByLayout(PLUGIN_POSITION.independence).map((pluginName) => getPlugin(pluginName))
+      independence: getPluginsByLayout(PLUGIN_POSITION.independence).map((pluginName) => getPlugin(pluginName)),
+      fixedNavLists: getPluginsByLayout(PLUGIN_POSITION.fixed).map((pluginName) => getPlugin(pluginName))
     })
+
+    const close = () => {
+      state.prevIdex = -2
+      closePlugin(true)
+    }
+
+    const switchAlign = (index, id, list, align) => {
+      list === PLUGIN_POSITION.leftTop ? state.topNavLists.splice(index, 1) : state.bottomNavLists.splice(index, 1)
+      emit('changeLeftAlign', id)
+      dragPluginLayout(list, align, index, 0)
+    }
+
+    const completed = ref(false)
+
+    const changeAlign = (pluginId) => {
+      const item = getPluginById(pluginId)
+      state.topNavLists.unshift(item)
+    }
 
     const doCompleted = () => {
       if (!completed.value) {
         completed.value = true
-        useLayout().closePlugin()
+        closePlugin()
       }
     }
 
@@ -190,6 +262,7 @@ export default {
         })
       }
     }
+
     watch(isTemporaryPage, () => {
       if (isTemporaryPage.saved) {
         const pagePanel = state.topNavLists?.find((item) => item.id === 'AppManage') || null
@@ -204,14 +277,16 @@ export default {
       robotComponent.value = components.Robot
       robotVisible.value = !robotVisible.value
     }
-    const close = () => {
-      state.prevIdex = -2
-      useLayout().closePlugin(true)
-    }
 
     //切换面板状态
     const fixPanel = (pluginName) => {
       changeLeftFixedPanels(pluginName)
+    }
+
+    //监听拖拽结束事件
+    const onEnd = (e) => {
+      if (!isSameSide(e.from.id, e.to.id)) close()
+      dragPluginLayout(e.from.id, e.to.id, e.oldIndex, e.newIndex)
     }
 
     return {
@@ -228,7 +303,14 @@ export default {
       completed,
       doCompleted,
       pluginState,
-      leftFixedPanelsStorage
+      leftFixedPanelsStorage,
+      onEnd,
+      showContextMenu,
+      changeAlign,
+      PLUGIN_POSITION,
+      getPluginShown,
+      switchAlign,
+      rightMenu
     }
   }
 }

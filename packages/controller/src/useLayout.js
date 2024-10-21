@@ -42,7 +42,8 @@ const PLUGIN_POSITION = {
   leftBottom: 'leftBottom',
   independence: 'independence',
   rightTop: 'rightTop',
-  rightBottom: 'rightBottom'
+  rightBottom: 'rightBottom',
+  fixed: 'fixed'
 }
 
 const pluginState = reactive({
@@ -61,6 +62,7 @@ const layoutState = reactive({
     height: '100%'
   },
   plugins: {
+    isShow: true,
     fixedPanels: [PLUGIN_NAME.Materials],
     render: null,
     api: {}, // 插件需要注册交互API到这里
@@ -68,6 +70,7 @@ const layoutState = reactive({
     showDesignSettings: true
   },
   settings: {
+    isShow: true,
     fixedPanels: [],
     render: null,
     api: null,
@@ -79,6 +82,20 @@ const layoutState = reactive({
   },
   pageStatus: ''
 })
+const leftMenuShownStorage = useStorage('leftMenuShown', layoutState.plugins.isShow)
+const rightMenuShownStorage = useStorage('rightMenuShown', layoutState.settings.isShow)
+const changeMenuShown = (menuName) => {
+  switch (menuName) {
+    case 'left': {
+      leftMenuShownStorage.value = !leftMenuShownStorage.value
+      break
+    }
+    case 'right': {
+      rightMenuShownStorage.value = !rightMenuShownStorage.value
+      break
+    }
+  }
+}
 const leftFixedPanelsStorage = useStorage('leftPanels', layoutState.plugins.fixedPanels)
 const rightFixedPanelsStorage = useStorage('rightPanels', layoutState.settings.fixedPanels)
 
@@ -184,11 +201,15 @@ export default () => {
 
   //获取某个布局（左上/左下/右上）的插件名称列表
   const getPluginsByLayout = (layout = 'all') => {
-    // 遍历对象并将 align 值分类到不同的数组中
-    const targetLayout = Object.keys(pluginStorageReactive.value).filter(
+    // 筛选出符合布局条件的插件名称
+    const pluginNames = Object.keys(pluginStorageReactive.value).filter(
       (key) => pluginStorageReactive.value[key].align === layout || layout === 'all'
     )
-    return targetLayout //这里返回的是只有名字的数组
+
+    // 根据 index 对插件名称进行排序
+    pluginNames.sort((a, b) => pluginStorageReactive.value[a].index - pluginStorageReactive.value[b].index)
+
+    return pluginNames // 返回排序后的插件名称数组
   }
 
   //修改某个插件的布局
@@ -198,6 +219,68 @@ export default () => {
     }
   }
 
+  //拖拽后改变插件位置
+  const dragPluginLayout = (from, to, oldIndex, newIndex) => {
+    if (from === to && oldIndex === newIndex) return
+
+    const items = Object.values(pluginStorageReactive.value)
+    // 记录拖拽项
+    const movedItem = items.find((item) => item.align === from && item.index === oldIndex)
+
+    // 同一列表中的拖拽
+    if (from === to) {
+      if (oldIndex < newIndex) {
+        //往后移动
+        items.forEach((item) => {
+          if (item !== movedItem && item.align === from && item.index > oldIndex && item.index <= newIndex) {
+            item.index -= 1
+          }
+        })
+      } else {
+        //往前移动
+        items.forEach((item) => {
+          if (item !== movedItem && item.align === from && item.index >= newIndex && item.index < oldIndex) {
+            item.index += 1
+          }
+        })
+      }
+    } else {
+      // 跨列表拖拽
+      items.forEach((item) => {
+        if (item !== movedItem && item.align === from && item.index > oldIndex) {
+          item.index -= 1
+        }
+        if (item !== movedItem && item.align === to && item.index >= newIndex) {
+          item.index += 1
+        }
+      })
+    }
+
+    // 更新拖拽项的位置
+    if (movedItem) {
+      movedItem.align = to
+      movedItem.index = newIndex
+    }
+  }
+
+  //判断是否在同一侧
+  const isSameSide = (from, to) => {
+    const leftSide = [PLUGIN_POSITION.leftTop, PLUGIN_POSITION.leftBottom]
+    const rightSide = [PLUGIN_POSITION.rightTop, PLUGIN_POSITION.rightBottom]
+
+    const isLeft = leftSide.includes(from) && leftSide.includes(to)
+    const isRight = rightSide.includes(from) && rightSide.includes(to)
+
+    return isLeft || isRight
+  }
+
+  //获取插件显示状态
+  const getPluginShown = (name) => pluginStorageReactive.value[name]?.isShow
+
+  //修改插件显示状态
+  const changePluginShown = (name) => {
+    pluginStorageReactive.value[name].isShow = !pluginStorageReactive.value[name].isShow
+  }
   return {
     PLUGIN_NAME,
     PLUGIN_POSITION,
@@ -218,10 +301,17 @@ export default () => {
     changePluginWidth,
     leftFixedPanelsStorage,
     rightFixedPanelsStorage,
+    leftMenuShownStorage,
+    rightMenuShownStorage,
     changeLeftFixedPanels,
     changeRightFixedPanels,
     getPluginsByLayout,
     changePluginLayout,
-    getPluginByLayout
+    getPluginByLayout,
+    dragPluginLayout,
+    isSameSide,
+    getPluginShown,
+    changePluginShown,
+    changeMenuShown
   }
 }
